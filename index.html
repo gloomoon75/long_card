@@ -39,6 +39,8 @@
     .field label,.label-row{display:flex;justify-content:space-between;align-items:center;font-size:.9rem;font-weight:700;margin-bottom:8px}
     .hint{font-size:.78rem;color:#98a698;font-weight:400}
     .text-input{width:100%;min-height:245px;resize:vertical;border:2px solid var(--line);border-radius:18px;background:var(--green-soft);color:var(--ink);padding:15px;line-height:1.75;outline:none}
+    .text-input::placeholder{text-align:center;color:#98a698}.text-input:placeholder-shown{padding-top:100px}
+    .action .sub{display:block;font-size:.72rem;font-weight:400;opacity:.85;margin-top:1px}.action.two-line{height:62px;line-height:1.25}
     .text-input:focus,.select:focus,.number:focus{border-color:var(--green);box-shadow:0 0 0 4px rgba(124,197,138,.2)}
     .row{display:grid;grid-template-columns:1fr 1fr;gap:11px}
     .select,.number{width:100%;height:44px;border:2px solid var(--line);border-radius:14px;background:#fff;padding:0 11px;outline:none;color:var(--ink)}
@@ -128,7 +130,7 @@
         <div class="field"><div class="label-row"><span>顏色</span><span class="hint">背景／深色字／淺色字</span></div><div class="color-line"><label class="color-wrap"><input type="color" id="bg" value="#f7f3ea"><span id="bgHex">#F7F3EA</span></label><label class="color-wrap"><input type="color" id="dark" value="#252525"><span>深</span></label><label class="color-wrap"><input type="color" id="light" value="#a39e96"><span>淺</span></label></div></div>
       </div>
       <button id="generate" class="action">產生切割預覽 ✧</button>
-      <div class="actions"><button id="addCut" class="action secondary" disabled>新增切割線</button><button id="removeCut" class="action secondary" disabled>移除切割線</button><button id="resetCuts" class="action secondary wide" disabled>重新自動切割</button><button id="download" class="action pink" disabled>存到相簿／分享 ♡</button><button id="downloadFiles" class="action" disabled>下載圖檔 ⬇</button></div>
+      <div class="actions"><button id="addCut" class="action secondary" disabled>新增切割線</button><button id="removeCut" class="action secondary" disabled>移除切割線</button><button id="resetCuts" class="action secondary wide" disabled>重新自動切割</button><button id="download" class="action pink two-line" disabled>存到相簿／分享 ♡<span class="sub">適合手機用戶</span></button><button id="downloadFiles" class="action two-line" disabled>下載圖檔 ⬇<span class="sub">適合電腦用戶</span></button></div>
       <div class="notice">拖動粉紅線左側的圓形把手即可微調。<br>要增加切線：按「新增切割線」，再點預覽圖片中的位置。<br>要刪掉切線：按「移除切割線」，再點想刪掉的那條線的把手。<br>手機建議用「存到相簿／分享」，電腦請用「下載圖檔」。</div>
     </section>
     <section class="panel preview-panel"><div class="preview-head"><h2>切割預覽</h2><span class="badge" id="count">尚未產生</span></div><div class="stage" id="stage"><div class="empty" id="empty"><div><div class="empty-face">(っ`ᵕ´c)</div><p><strong>內容會在這裡排成長圖</strong></p><p>產生後可拖動或新增切割線</p></div></div><div class="canvas-wrap hidden" id="canvasWrap"><canvas id="canvas"></canvas><div class="cuts" id="cuts"></div></div></div></section>
