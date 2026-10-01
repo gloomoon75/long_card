@@ -46,6 +46,13 @@
     .row{display:grid;grid-template-columns:1fr 1fr;gap:11px}
     .select,.number{width:100%;height:44px;border:2px solid var(--line);border-radius:14px;background:#fff;padding:0 11px;outline:none;color:var(--ink)}
     .font-preview{margin-top:9px;padding:11px 14px;border-radius:14px;background:var(--green-soft);border:2px dashed var(--line);font-size:1.1rem;line-height:1.5;color:var(--ink);text-align:center}
+    .redact-mode{display:flex;align-items:center;gap:10px;margin-top:9px;font-size:.88rem;flex-wrap:wrap}
+    .redact-mode label{display:flex;align-items:center;gap:5px;cursor:pointer}
+    .redact-mode input[type=radio]{accent-color:var(--green-deep);width:17px;height:17px;margin:0}
+    .redact-same{flex:none!important;width:46px;height:36px!important;justify-content:center;padding:4px!important;margin-right:6px}
+    .redact-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+    .redact-chip{display:flex;align-items:center;gap:7px;background:#fff;border:2px solid var(--line);border-radius:999px;padding:4px 12px 4px 6px;font-size:.88rem}
+    .redact-chip input{width:24px;height:24px;border:0;padding:0;background:none;cursor:pointer}
     .color-line{display:flex;gap:9px}
     .color-wrap{height:44px;flex:1;border:2px solid var(--line);border-radius:14px;display:flex;align-items:center;padding:5px 10px;gap:8px;background:#fff;font-size:.85rem}
     .color-wrap input{width:25px;height:25px;border:0;padding:0;background:none}
@@ -127,6 +134,11 @@
           </optgroup>
         </select></div></div>
         <div class="field"><div class="font-preview" id="fontPreview">今天的劇情也超好看 ABC 123</div><div class="hint" id="fontNote" style="margin-top:6px"></div></div>
+        <div class="field"><div class="label-row"><label for="redactWords">要塗黑的字詞</label><span class="hint">用逗號或換行分隔</span></div>
+          <textarea class="number" id="redactWords" rows="2" placeholder="例如：小明，小美" style="height:auto;min-height:44px;padding:9px 11px;resize:vertical;line-height:1.5"></textarea>
+          <div class="redact-mode"><label><input type="radio" name="redactMode" value="same" checked> 全部同色</label><label class="color-wrap redact-same" title="塗黑顏色"><input type="color" id="redactColor" value="#252525"></label><label><input type="radio" name="redactMode" value="each"> 每個詞不同色</label></div>
+          <div id="redactList" class="redact-list hidden"></div>
+        </div>
         <div class="field"><div class="label-row"><label for="padding">內距</label><span class="hint"><span id="paddingValue">96</span> px</span></div><input id="padding" class="range" type="range" min="32" max="180" value="96"></div>
         <div class="field"><div class="label-row"><span>顏色</span><span class="hint">背景／深色字／淺色字</span></div><div class="color-line"><label class="color-wrap"><input type="color" id="bg" value="#f7f3ea"><span id="bgHex">#F7F3EA</span></label><label class="color-wrap"><input type="color" id="dark" value="#252525"><span>深</span></label><label class="color-wrap"><input type="color" id="light" value="#a39e96"><span>淺</span></label></div></div>
       </div>
@@ -161,22 +173,31 @@ const segmenter=typeof Intl!=='undefined'&&Intl.Segmenter?new Intl.Segmenter('zh
 function graphemes(s){return segmenter?[...segmenter.segment(s)].map(x=>x.segment):[...s]}
 // 把文字拆成逐行的區塊：一般文字、> 引用、--- 分隔線、空行
 function parseLines(text){const out=[];for(const raw of text.replace(/\r/g,'').split('\n')){const t=raw.trim();if(/^([-－]\s*){3,}$|^([*＊]\s*){3,}$|^([_＿]\s*){3,}$/.test(t)){out.push({kind:'rule'});continue}const quote=/^[>＞]/.test(t),body=quote?t.replace(/^[>＞]\s?/,'').trim():t;if(!body){out.push({kind:'blank',quote});continue}out.push({kind:'text',text:body,quote})}while(out.length&&out[0].kind==='blank')out.shift();while(out.length&&out.at(-1).kind==='blank')out.pop();return out}
+const REDACT_PALETTE=['#252525','#e8708a','#5b9bd5','#5fb36f','#a07fe0','#e0a03f','#3fb5a8','#c4644f'];const redactColors={};
+function redactWordList(){return [...new Set(($('#redactWords').value||'').split(/[,，、;；\n]+/).map(s=>s.replace(/\*/g,'').trim()).filter(Boolean))]}
+function redactMode(){return document.querySelector('input[name=redactMode]:checked')?.value||'same'}
+function redactColorFor(word){if(redactMode()==='same')return $('#redactColor').value;return redactColors[word]||'#252525'}
+function getRedactWords(){return redactWordList().sort((a,b)=>b.length-a.length).map(word=>({word,g:graphemes(word)}))}
+function renderRedactList(){const list=$('#redactList'),words=redactWordList(),each=redactMode()==='each';list.classList.toggle('hidden',!each||!words.length);$('.redact-same').style.visibility=each?'hidden':'visible';if(!each)return;let n=Object.keys(redactColors).length;words.forEach(w=>{if(!redactColors[w])redactColors[w]=REDACT_PALETTE[n++%REDACT_PALETTE.length]});list.innerHTML='';words.forEach(w=>{const chip=document.createElement('label');chip.className='redact-chip';const inp=document.createElement('input');inp.type='color';inp.value=redactColors[w];inp.oninput=()=>{redactColors[w]=inp.value;rerenderText()};const span=document.createElement('span');span.textContent=w;chip.append(inp,span);list.appendChild(chip)})}
+function rerenderText(){const t=$('#textInput').value.trim();if(state.mode==='text'&&t&&state.sourceCanvas)renderText(t)}
+function markRedactions(chars,words){if(!words.length)return;for(let i=0;i<chars.length;i++){for(const wd of words){const g=wd.g;if(i+g.length>chars.length)continue;let ok=true;for(let k=0;k<g.length;k++){if(chars[i+k].ch!==g[k]){ok=false;break}}if(ok){for(let k=0;k<g.length;k++)chars[i+k].redact=wd.word;i+=g.length-1;break}}}}
 function makeTextCanvas(text){
   const w=clamp(+$('#width').value,320,2400),targetH=clamp(+$('#height').value,400,3200),fs=clamp(+$('#fontSize').value,18,120),pad=clamp(+$('#padding').value,32,180),lh=Math.round(fs*1.72),blankH=Math.round(lh*.62),ruleH=Math.round(lh*1.1),qi=Math.round(fs*1.1),family=fonts[$('#fontFamily').value].family,measure=document.createElement('canvas').getContext('2d');
-  measure.font=`500 ${fs}px ${family}`;const rows=[];let light=false,prevKind=null;
+  measure.font=`500 ${fs}px ${family}`;const rows=[],redactWords=getRedactWords();let light=false,prevKind=null;
   for(const ln of parseLines(text)){
     if(ln.kind==='blank'){light=false;if(prevKind!=='blank')rows.push({type:'gap',quote:ln.quote,h:blankH,end:true});prevKind='blank';continue}
     if(ln.kind==='rule'){light=false;if(rows.length)rows.at(-1).end=true;rows.push({type:'rule',h:ruleH,end:true});prevKind='rule';continue}
     const max=w-pad*2-(ln.quote?qi:0);let line=[],lineW=0;
-    for(const g of graphemes(ln.text)){
-      if(g==='*'){light=!light;continue}
-      const cw=measure.measureText(g).width;
+    const chars=[];for(const g of graphemes(ln.text)){if(g==='*'){light=!light;continue}chars.push({ch:g,light,redact:false})}
+    markRedactions(chars,redactWords);
+    for(const it of chars){
+      const g=it.ch,cw=measure.measureText(g).width;
       if(line.length&&lineW+cw>max){
-        if(NO_START.includes(g)){line.push({ch:g,light,w:cw});lineW+=cw;continue}
+        if(NO_START.includes(g)){line.push({...it,w:cw});lineW+=cw;continue}
         let carry=[];if(line.length>1&&NO_END.includes(line.at(-1).ch))carry=[line.pop()];
         rows.push({type:'text',items:line,quote:ln.quote,h:lh});line=carry;lineW=carry.reduce((s,x)=>s+x.w,0)
       }
-      line.push({ch:g,light,w:cw});lineW+=cw
+      line.push({...it,w:cw});lineW+=cw
     }
     rows.push({type:'text',items:line,quote:ln.quote,h:lh});prevKind='text'
   }
@@ -187,7 +208,7 @@ function makeTextCanvas(text){
   rows.forEach((r,i)=>{
     const isQuote=r.type!=='rule'&&r.quote,next=rows[i+1];
     if(isQuote&&quoteStart===null)quoteStart=y;
-    if(r.type==='text'){let x=pad+(r.quote?qi:0);for(const it of r.items){ctx.fillStyle=it.light?$('#light').value:$('#dark').value;ctx.fillText(it.ch,x,y+inset);x+=it.w}}
+    if(r.type==='text'){let x=pad+(r.quote?qi:0);for(const it of r.items){if(it.redact){ctx.fillStyle=redactColorFor(it.redact);ctx.fillRect(Math.floor(x),Math.round(y+inset-fs*.1),Math.ceil(it.w)+1,Math.round(fs*1.2))}else{ctx.fillStyle=it.light?$('#light').value:$('#dark').value;ctx.fillText(it.ch,x,y+inset)}x+=it.w}}
     else if(r.type==='rule'){ctx.fillStyle=$('#dark').value;const t=Math.max(2,Math.round(fs*.05));ctx.fillRect(pad,Math.round(y+r.h/2-t/2),w-pad*2,t)}
     y+=r.h;
     if(quoteStart!==null&&!(next&&next.type!=='rule'&&next.quote))closeQuote(r.type==='gap'?y-r.h:y);
@@ -213,6 +234,7 @@ $('#fileInput').onchange=e=>loadFile(e.target.files[0]);const drop=$('#drop');['
 $('#generate').onclick=async()=>{if(state.mode==='text'){const text=$('#textInput').value.trim();if(!text)return toast('請先貼上文字');const btn=$('#generate');btn.disabled=true;try{await renderText(text)}finally{btn.disabled=false}}else{if(!state.img)return toast('請先選擇長圖');showCanvas(copyImageToCanvas(state.img))}};
 function updateFontPreview(){const f=fonts[$('#fontFamily').value];$('#fontPreview').style.fontFamily=f.family;$('#fontNote').textContent=f.note||''}
 $('#fontFamily').onchange=()=>{updateFontPreview();const text=$('#textInput').value.trim();if(state.mode==='text'&&text&&state.sourceCanvas)renderText(text)};updateFontPreview();
+let redactTimer;$('#redactWords').addEventListener('input',()=>{renderRedactList();clearTimeout(redactTimer);redactTimer=setTimeout(rerenderText,400)});$('#redactColor').addEventListener('input',rerenderText);$$('input[name=redactMode]').forEach(r=>r.addEventListener('change',()=>{renderRedactList();rerenderText()}));renderRedactList();
 $('#padding').oninput=e=>$('#paddingValue').textContent=e.target.value;$('#bg').oninput=e=>$('#bgHex').textContent=e.target.value.toUpperCase();
 async function makeOutputFiles(){const ys=[0,...state.cuts,state.sourceCanvas.height],files=[];for(let i=0;i<ys.length-1;i++){const h=ys[i+1]-ys[i],c=document.createElement('canvas');c.width=state.sourceCanvas.width;c.height=h;c.getContext('2d').drawImage(state.sourceCanvas,0,ys[i],c.width,h,0,0,c.width,h);const blob=await new Promise((ok,no)=>c.toBlob(b=>b?ok(b):no(new Error('圖片建立失敗')),'image/png'));files.push(new File([blob],'圖卡_'+String(i+1).padStart(2,'0')+'.png',{type:'image/png'}))}return files}
 async function downloadFiles(files){for(const file of files){const a=document.createElement('a'),url=URL.createObjectURL(file);a.href=url;a.download=file.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);await new Promise(r=>setTimeout(r,250))}}
